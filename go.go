@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/cloudwatchlogs"
+	"github.com/inhies/go-bytesize"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/sheets/v4"
@@ -57,7 +58,6 @@ func main() {
 	// Prints the names and majors of students in a sample spreadsheet:
 	// https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
 	spreadsheetId := "1hPtvEQngzZ1TvMB7cqGEf-5sJUivdb81OFERtPTOWfg"
-
 	writeRange := "A3"
 
 	var vr sheets.ValueRange
@@ -75,7 +75,7 @@ func main() {
 
 	}
 
-	// fmt.Println(zeroRetention)
+	// fmt.Println(myval)
 
 	_, err = srv.Spreadsheets.Values.Update(spreadsheetId, writeRange, &vr).ValueInputOption("RAW").Do()
 	if err != nil {
@@ -89,7 +89,7 @@ func main() {
 	fmt.Printf(strconv.Itoa((len(zeroRetention))) + " log groups have unlimited retention... \n")
 
 	var vr2 sheets.ValueRange
-	writeRange = "E1"
+	writeRange = "G1"
 	messages = append(messages, (strconv.Itoa(totalGroups) + " log groups here... \n" + (strconv.Itoa((len(zeroRetention))) + " log groups have unlimited retention.")))
 	// fmt.Println(messages)
 	myMessage := []interface{}{messages[0]}
@@ -110,7 +110,8 @@ func cmdGroups(client *cloudwatchlogs.CloudWatchLogs) error {
 		totalGroups = totalGroups + (len(res.LogGroups))
 		for _, group := range res.LogGroups {
 			name := group.LogGroupName
-			// logGroupName := fmt.Sprintf(`%s`, *name)
+			sizeFormatted, _ := bytesize.Parse(strconv.FormatInt(*group.StoredBytes, 10) + " B")
+			logSize := fmt.Sprintf(`%s`, sizeFormatted)
 			tags := cloudwatchlogs.ListTagsLogGroupInput{
 				LogGroupName: name,
 			}
@@ -126,7 +127,7 @@ func cmdGroups(client *cloudwatchlogs.CloudWatchLogs) error {
 					fmt.Println("over 90!")
 				}
 			} else {
-				retention = "0"
+				retention = "Never Expire"
 				department := (*tagsOutput).Tags["Department"]
 				if department != nil {
 					departmentTag = *department
@@ -139,9 +140,10 @@ func cmdGroups(client *cloudwatchlogs.CloudWatchLogs) error {
 				} else {
 					provisionerTag = ""
 				}
+
 				nameTag := *name
 				// sheetsString := fmt.Sprintf("q%, s%", *name, departmentTag)
-				sheetsString := (nameTag + ":" + departmentTag + ":" + provisionerTag)
+				sheetsString := (nameTag + ":" + departmentTag + ":" + provisionerTag + ":" + logSize + ":" + (strconv.FormatInt(*group.StoredBytes, 10)) + ":" + retention)
 				fmt.Println(sheetsString)
 				stringerBell := fmt.Sprintf(sheetsString)
 				zeroRetention = append(zeroRetention, stringerBell)
